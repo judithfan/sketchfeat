@@ -1,4 +1,8 @@
-# This will be used to send into the gpu. Currently, Tiger is being annoying because it isn't connected to the internet
+
+######### dependencies #######
+import numpy as np
+import utils
+import pickle
 
 ######### dependencies #######
 import numpy as np
@@ -17,18 +21,16 @@ VGG_SIZE_Z = 3
 NUM_VIEWS = 40 
 
 
-
 # to upload multiple images
 
 cars = ['limoToSUV_10','limoToSUV_99','smartToSedan_10','smartToSedan_99'];
 furnitures = ['bedChair_1', 'bedChair_100', 'benchBed_1', 'benchBed_100']
 
-
 batch = np.empty((0, VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z), float)
 for obj in cars + furnitures:
     for view in xrange(0,NUM_VIEWS):
-        imgname = obj + '_' + str(view) + '.png'
-        imgloc ='./object_data/' + imgname
+        imgname = obj + '_' + str(view) + '.png.png'
+        imgloc = 'object_data/' + imgname
         img = utils.load_image(imgloc)
         img = img.reshape(1, VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z)
         batch = np.concatenate((batch, img))
@@ -36,7 +38,7 @@ for obj in cars + furnitures:
         
  # smaller batch for testing first
 print batch.shape[0]
-batch_mini = batch[:4,:,:,:]
+batch_mini = batch[:2,:,:,:]
 print batch_mini.shape[0]
 
 
@@ -51,13 +53,16 @@ with tf.device('/gpu:0'):
         vgg = vgg16.Vgg16()
         with tf.name_scope("content_vgg"):
             vgg.build(image)
+	
+        act_wanted = [vgg.pool1, vgg.pool2, vgg.prob]
+        act = sess.run(act_wanted, feed_dict=feed_dict)
 
-        prob = sess.run(vgg.prob, feed_dict=feed_dict)
-        # print(prob)
         for i in xrange(0, batch_mini.shape[0]):
-            utils.print_prob(prob[i], './synset.txt')
-        
-
-
-
+            utils.print_prob(act[2][i], './synset.txt')
+         
+print "completed running the VGG on " + str(batch.shape[0])
+print "now saving...."
+pickle.dump(act, open( "/tigress/rslee/activations.p", "wb" ) )
+print "saved vgg"
+       
        
