@@ -1,27 +1,60 @@
-import numpy as np
-import tensorflow as tf
 
-import vgg16
+######### dependencies #######
+import numpy as np
+import utils
+import pickle
+
+######### dependencies #######
+import numpy as np
 import utils
 
-img1 = utils.load_image("./test_data/limoToSUV_40_15.png.png")
+import tensorflow as tf
+import vgg16
 
-batch1 = img1.reshape((1, 224, 224, 3))
+######### constants #########
+# required vgg image sizes 
+VGG_SIZE_X = 224
+VGG_SIZE_Y = 224
+VGG_SIZE_Z = 3
+
+# constants for the images
+NUM_VIEWS = 40 
 
 
+# to upload multiple images
 
-# with tf.Session(config=tf.ConfigProto(gpu_options=(tf.GPUOptions(per_process_gpu_memory_fraction=0.7)))) as sess:
-with tf.device('/cpu:0'):
+cars = ['limoToSUV_10','limoToSUV_99','smartToSedan_10','smartToSedan_99'];
+furnitures = ['bedChair_1', 'bedChair_100', 'benchBed_1', 'benchBed_100']
+
+batch = np.empty((0, VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z), float)
+for obj in cars + furnitures:
+    for view in xrange(0,NUM_VIEWS):
+        imgname = obj + '_' + str(view) + '.png.png'
+        imgloc = 'object_data/' + imgname
+        img = utils.load_image(imgloc)
+        img = img.reshape(1, VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z)
+        batch = np.concatenate((batch, img))
+
+        
+
+
+with tf.device('/gpu:0'):
     with tf.Session() as sess:
-        image = tf.placeholder("float", [1, 224, 224, 3])
+        image = tf.placeholder("float", [batch.shape[0], VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z])
 
-        feed_dict = {image: batch1}
+        feed_dict = {image: batch}
 
         vgg = vgg16.Vgg16()
         with tf.name_scope("content_vgg"):
             vgg.build(image)
+    
+        act_wanted = [vgg.pool1, vgg.pool2, vgg.pool3, vgg.pool4, vgg.pool5, vgg.fc6, vgg.fc7, vgg.prob]
+        act = sess.run(act_wanted, feed_dict=feed_dict)
 
-        prob = sess.run(vgg.prob, feed_dict=feed_dict)
-        # print(prob)
-        utils.print_prob(prob[0], './synset.txt')
+         
+print "completed running the VGG on " + str(batch.shape[0])
+print "now saving...."
+pickle.dump(act, open( "/tigress/rslee/activations.p", "wb" ) )
+print "saved vgg"
+       
        
