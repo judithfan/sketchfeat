@@ -104,4 +104,5 @@ ENV/
 .mypy_cache/
 
 *.png
+*.csv
 .DS_Store
