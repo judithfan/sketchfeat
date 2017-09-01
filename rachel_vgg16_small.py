@@ -24,7 +24,7 @@ NUM_VIEWS = 40
 # to upload multiple images
 
 cars = ['limoToSUV_10','limoToSUV_99','smartToSedan_10','smartToSedan_99'];
-furnitures = ['bedChair_1', 'bedChair_100', 'benchBed_1', 'benchBed_100']
+furnitures = ['bedChair_1', 'bedChair_100', 'tableBench_1', 'tableBench_100']
 
 batch = np.empty((0, VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z), float)
 for obj in cars + furnitures:
