@@ -17,6 +17,7 @@ VGG_SIZE_Z = 3
 
 
 SKETCH_FOLDER = './sketch_data'
+BATCH_SZ = 160
 
 
 # parses a foldername to return the relevant info. returns -1 if file is not a png or the filename is ill-formed
@@ -74,7 +75,6 @@ for folderName, subfolders, filenames in os.walk(SKETCH_FOLDER):
     if folderName == SKETCH_FOLDER: 
         continue
     
-    
 
     for filename in filenames: 
         
@@ -94,6 +94,8 @@ for folderName, subfolders, filenames in os.walk(SKETCH_FOLDER):
 #         print ('FILE INSIDE ' + folderName + ':' + filename) 
 
 
+batch = splitBatches(full_batch, BATCH_SZ);
+
 
 # running the gpu 
 
@@ -102,7 +104,7 @@ for tf_run in xrange(0, len(batch)):
 
     print "running batch" + str(tf_run)
     print ".........." 
-          
+        
     with tf.device('/gpu:0'):
         with tf.Session() as sess:
             image = tf.placeholder("float", [batch_mini.shape[0], VGG_SIZE_X, VGG_SIZE_Y, VGG_SIZE_Z])
