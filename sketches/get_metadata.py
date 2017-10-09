@@ -2,6 +2,7 @@ from __future__ import division
 import pymongo as pm
 import numpy as np
 import tabular as tb
+import pandas as pd
 import json
 import re
 import cPickle
@@ -323,8 +324,9 @@ def get_recog_meta(w):
 	return X,meta4	 ## X = trial-wise-meta, meta = TR-wise-meta            
 
 def get_drawing_meta(w):
+
     import time
-    start = time.time()	
+    beginning = time.time()
 
     # session parameters
     numPreRuns = 4
@@ -342,7 +344,7 @@ def get_drawing_meta(w):
     obj = []
     option1 = []
     option2 = []
-    png = []
+    # png = [] ## saving these for each trial and TR makes the metadata files too large... 
     viewpoint = []
     trialDuration = []
     phase = []
@@ -398,7 +400,7 @@ def get_drawing_meta(w):
                     elif float(aa[0]['trialNum']) >= numTrialsPreTotal+numTrialsTrainTotal:
                         runNum.append(ceil((float(aa[0]['trialNum'])-40+1)/numTrialsPreRun)+numTrainRuns)                                             
                     options = getEndpoints(aa[0]['morphline'])  
-                    png.append(aa[0]['imgData'])
+                    # png.append(aa[0]['imgData'])
                     condition.append([trained,near,far1,far2].index(aa[0]['morphline'])) # 0=Trained, 1=Near, 2=Far1, 3=Far2
 
     except AssertionError,e:
@@ -406,11 +408,10 @@ def get_drawing_meta(w):
         pass
 
     X = pd.DataFrame([map(str,wID),map(int,version),map(str,category),map(str,obj),map(int,trial), \
-                     TRnum,condition,stim_onset, map(int,runNum), map(int,viewpoint),png])
+                     TRnum,condition,stim_onset, map(int,runNum), map(int,viewpoint)])
     X = X.transpose()
     X.columns = ['wID','versionNum','category','object', 'trial', \
-                             'TRnum','condition','onset_time', 'run_num','viewpoint','png']
-
+                             'TRnum','condition','onset_time', 'run_num','viewpoint']
     
     ## unroll from trial-wise meta into TR-wise meta
     import copy
@@ -483,14 +484,13 @@ def get_drawing_meta(w):
                 meta = pd.concat([meta,a],ignore_index=True)
                 
     end = time.time()
-    elapsed = end - start
+    elapsed = end - beginning
     print "Time taken: ", elapsed/60, "minutes."
         
     return X,meta
 
 def save_meta_to_csv(meta,w,save_dir):
-    meta.saveSV(os.path.join(save_dir, w + '.csv'))
-
+    meta.to_csv(os.path.join(save_dir, w + '.csv'))
 
 def get_meta_all_subs(save_dir,phase='drawing'):
     workers = get_worker_list()
@@ -551,8 +551,8 @@ def gen_regressor(DATADIR):
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description="generate sketches")
-    parser.add_argument('--save_dir', type=str, default='neurosketch_data')
+    parser = argparse.ArgumentParser(description="extract sketch metadata")
+    parser.add_argument('--save_dir', type=str, default='metadata')
     parser.add_argument('--phase', type=str, default='drawing') 
     parser.add_argument('--gen_regressor', type=bool, default=False)     
     args = parser.parse_args()  
@@ -565,9 +565,8 @@ if __name__ == '__main__':
     DATADIR = args.save_dir
     if not os.path.exists(DATADIR):
         os.makedirs(DATADIR)
-        
-	mdtd = cPickle.load(open('morph_drawing_training_design.pkl'))
-
+    
+    mdtd = cPickle.load(open('morph_drawing_training_design.pkl'))
 
     # patient ID and worker ID mappings
     ## exceptions: '1115161_neurosketch', '1116161_neurosketch', '1117161_neurosketch', '1207161_neurosketch'
