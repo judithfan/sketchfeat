@@ -2,6 +2,7 @@ from __future__ import division
 import pymongo as pm
 import numpy as np
 import tabular as tb
+import pandas as pd
 import json
 import re
 import cPickle
@@ -12,34 +13,6 @@ import glob
 
 from pylab import *
 from numpy import *
-
-conn = pm.MongoClient(port=20809)
-DBNAME = conn['during_morph_drawing_recognition']
-COLNAME = DBNAME['fmri3.files']
-coll=COLNAME
-DATADIR = 'neurosketch_data_3'
-
-mdtd = cPickle.load(open('morph_drawing_training_design.pkl'))
-
-# patient ID and worker ID mappings
-## exceptions: '1115161_neurosketch', '1116161_neurosketch', '1117161_neurosketch', '1207161_neurosketch'
-patient_ids_1 = ['1121161_neurosketch', '1130161_neurosketch', 
-'1201161_neurosketch', '1202161_neurosketch', '1203161_neurosketch',
-'1206161_neurosketch', '1206162_neurosketch','1206163_neurosketch',
-'1207161_neurosketch','1207162_neurosketch']
-patient_ids_2 = ['1207162_neurosketch']
-patient_ids_3 = ['0110171_neurosketch', '0110172_neurosketch',
-'0111171_neurosketch','0112171_neurosketch', '0112172_neurosketch','0112173_neurosketch',
-'0113171_neurosketch','0115172_neurosketch','0115174_neurosketch','0117171_neurosketch',
-'0118171_neurosketch','0118172_neurosketch','0119171_neurosketch','0119172_neurosketch',
-'0119173_neurosketch', '0119174_neurosketch','0120171_neurosketch','0120172_neurosketch',
-'0120173_neurosketch','0123171_neurosketch','0123172_neurosketch','0123173_neurosketch',
-'0124171_neurosketch','0125171_neurosketch','0125172_neurosketch']
-
-patient_ids = patient_ids_1 + patient_ids_2 + patient_ids_3
-
-all_wIDs = patient_ids
-wID_pIDs = zip(patient_ids,all_wIDs)
 
 def get_pID_from_wID(wID):
 	pID = [i[0] for i in wID_pIDs if i[1] == wID]
@@ -154,7 +127,7 @@ def getEndpoints(morphline):
     else:
         return ['A','B']          
 
-def get_meta(w):
+def get_recog_meta(w):
 
 	import time
 	start = time.time()
@@ -350,15 +323,188 @@ def get_meta(w):
 
 	return X,meta4	 ## X = trial-wise-meta, meta = TR-wise-meta            
 
-def save_meta_to_csv(meta,w):
-	meta.saveSV(os.path.join(DATADIR, w + '.csv'))
+def get_drawing_meta(w):
 
-def get_meta_all_subs():
-	workers = get_worker_list()
-	for w in workers:
-		print w
-		X,meta = get_meta(w)
-		save_meta_to_csv(meta,w)
+    import time
+    beginning = time.time()
+
+    # session parameters
+    numPreRuns = 4
+    numTrainRuns = 4
+    numPostRuns = 2
+    numTrialsTrainRun = 10
+    numTrialsPreRun = 80
+    numTrialsPreTotal = numTrialsPreRun*numPreRuns
+    numTrialsTrainTotal = numTrialsTrainRun*numTrainRuns
+    numTrials = numTrialsPreTotal*2 + numTrialsTrainTotal
+
+    wID = []
+    version = []
+    category = []
+    obj = []
+    option1 = []
+    option2 = []
+    # png = [] ## saving these for each trial and TR makes the metadata files too large... 
+    viewpoint = []
+    trialDuration = []
+    phase = []
+    trial = []
+    counter = 0
+    session_duration = []
+    workers_complete = []
+    TRnum = [] ## which TR of this block?
+    runNum = [] ## function run index
+    condition = []
+    stim_onset = []
+
+    # load design file
+    mdtd = cPickle.load(open('morph_drawing_training_design.pkl'))    
+
+    try:
+        these = coll.find({'wID': w}).sort('trialNum')   
+        versionNum = these[0]['versionNum']
+        design = [i for i in mdtd if i['version'] == int(versionNum)] # find which axes belong to which condition
+        trained = design[0]['trained']
+        near = design[0]['near']
+        far1 = design[0]['far1']
+        far2 = design[0]['far2']
+
+        if these.count() > 9: 
+            a = coll.find({'wID':w}).distinct('trialNum')
+            upload_times = sort(map(math.trunc,map(float,a)))
+            workers_complete.append(w)
+            session_duration.append((max(upload_times)-min(upload_times))/1000/60)        
+            counter = 0
+            for ut in upload_times:
+                ##aa = coll.find({'wID':w, 'trialNum': {'$in': [re.compile('.*' + str(ut) + '.*')]}}).sort('trialNum')
+                aa = coll.find({'wID':w, 'trialNum': str(ut)}).sort('uploadDate')            
+    #             ####=========######=======########===========##########==========##############
+                if (aa[0]['task'] == 'drawing'): 
+                    ##print 'Analyzing trial '  + str(ut) + ' from ' + aa[0]['wID']
+                    assert aa.count()==1
+                    wID.append(aa[0]['wID'])
+                    version.append(int(aa[0]['versionNum']))
+                    category.append(get_category_index(aa[0]['category']))
+                    obj.append(get_object_name(2,get_object_index(aa[0]['morphline'],aa[0]['morphnum'])))
+                    viewpoint.append(aa[0]['viewpoint'])
+                    phase.append(get_phase_index(aa[0]['phase']))
+                    trial.append(int(aa[0]['trialNum'])) 
+                    TRnum.append(int(np.round((float(aa[0]['stimOnset'])-float(aa[0]['startBlock']))/1000/1.5)))  
+                    stim_onset.append(float(aa[0]['stimOnset'])-float(aa[0]['startBlock']))
+                    if float(aa[0]['trialNum'])==0:
+                        runNum.append(1)
+                    elif (float(aa[0]['trialNum'])>numTrialsPreTotal) & (float(aa[0]['trialNum']) <= (numTrialsPreTotal+numTrialsTrainTotal)):
+                        runNum.append(ceil((float(aa[0]['trialNum'])-numTrialsPreTotal)/numTrialsTrainRun)+numPreRuns)
+                    elif float(aa[0]['trialNum']) <= numTrialsPreTotal:
+                        runNum.append(ceil((float(aa[0]['trialNum'])+1)/numTrialsPreRun))
+                    elif float(aa[0]['trialNum']) >= numTrialsPreTotal+numTrialsTrainTotal:
+                        runNum.append(ceil((float(aa[0]['trialNum'])-40+1)/numTrialsPreRun)+numTrainRuns)                                             
+                    options = getEndpoints(aa[0]['morphline'])  
+                    # png.append(aa[0]['imgData'])
+                    condition.append([trained,near,far1,far2].index(aa[0]['morphline'])) # 0=Trained, 1=Near, 2=Far1, 3=Far2
+
+    except AssertionError,e:
+        print str(e)
+        pass
+
+    X = pd.DataFrame([map(str,wID),map(int,version),map(str,category),map(str,obj),map(int,trial), \
+                     TRnum,condition,stim_onset, map(int,runNum), map(int,viewpoint)])
+    X = X.transpose()
+    X.columns = ['wID','versionNum','category','object', 'trial', \
+                             'TRnum','condition','onset_time', 'run_num','viewpoint']
+    
+    ## unroll from trial-wise meta into TR-wise meta
+    import copy
+    morphrecog = copy.deepcopy(X)
+    TR_unfurled = np.arange(1,max(TRnum))
+    print "Now unrolling trial-wise meta into TR-wise meta ..."
+
+    onset = np.zeros(len(morphrecog)).astype(int)
+    morphrecog = morphrecog.assign(onset=pd.Series(onset).values)
+
+    meta = []
+    counter = 0
+    numTrials =len(morphrecog)
+    runStartDelayTR = 8 # number of TRs delay before first stim shown in each run
+    num_TR_per_train_run = 286
+
+    for counter in np.arange(numTrials):
+        onset = morphrecog.iloc[counter]['TRnum']
+        if onset != 8: ## NOT the first stim of a given run
+            if counter < numTrials-1:        
+                upcoming = morphrecog.loc[counter+1,'TRnum']
+            else:
+                upcoming = num_TR_per_train_run # number of TR's in training run
+            soa = upcoming-onset
+            if soa>0: # soa<0 after transition to new block
+                _a = morphrecog.iloc[counter]
+                __a = pd.Series.to_frame(_a)
+                a = pd.concat([__a]*soa,axis=1,ignore_index=True).transpose()            
+                a['TRnum']=np.arange(a.loc[0,'TRnum'],a.loc[0,'TRnum']+soa)
+            else:
+                reps = num_TR_per_train_run - onset
+                _a = pd.Series.to_frame(morphrecog.iloc[counter])
+                a = pd.concat([_a]*reps,axis=1,ignore_index=True).transpose()             
+                a['TRnum']=np.arange(a.loc[0,'TRnum'],a.loc[0,'TRnum']+num_TR_per_train_run-onset)                
+            a.loc[0,'onset'] = 1                    
+            if len(meta)==0:
+                meta = a
+            else:
+                meta = pd.concat([meta,a],ignore_index=True)            
+        else:    ## the first stim of a given run   
+            # tack on first 12 TR's at the top of meta, where no stim shown
+            start = morphrecog.iloc[counter]['TRnum']
+            _a = pd.Series.to_frame(morphrecog.iloc[counter])
+            a = pd.concat([_a]*start,axis=1,ignore_index=True).transpose()                 
+            a['TRnum'] = np.arange(a.loc[0,'TRnum'])
+            a['condition'] = '-1'
+            a['onset_time'] = 0
+            if len(meta)==0:
+                meta = a
+            else:
+                meta = pd.concat([meta,a],ignore_index=True)
+            if counter < numTrials-1:        
+                upcoming = morphrecog.loc[counter+1,'TRnum']
+            else:
+                upcoming = num_TR_per_train_run
+            soa = upcoming-onset
+            if soa>0: # soa<0 after transition to new block
+                _a = pd.Series.to_frame(morphrecog.iloc[counter])
+                a = pd.concat([_a]*soa,axis=1,ignore_index=True).transpose()                                      
+                a['TRnum']=np.arange(a.loc[0,'TRnum'],a.loc[0,'TRnum']+soa)
+            else:
+                reps = num_TR_per_train_run-onset
+                _a = pd.Series.to_frame(morphrecog.iloc[counter])
+                a = pd.concat([_a]*reps,axis=1,ignore_index=True).transpose()                         
+                a['TRnum']=np.arange(a.loc[0,'TRnum'],a.loc[0,'TRnum']+num_TR_per_train_run-onset)                
+            a.loc[0,'onset'] = 1                    
+            if len(meta)==0:
+                meta = a
+            else:
+                meta = pd.concat([meta,a],ignore_index=True)
+                
+    end = time.time()
+    elapsed = end - beginning
+    print "Time taken: ", elapsed/60, "minutes."
+        
+    return X,meta
+
+def save_meta_to_csv(meta,w,save_dir):
+    meta.to_csv(os.path.join(save_dir, w + '.csv'))
+
+def get_meta_all_subs(save_dir,phase='drawing'):
+    workers = get_worker_list()
+    for w in workers:
+        print w
+        if phase=='drawing':
+            X,meta = get_drawing_meta(w)
+        elif phase=='recog':
+            X,meta = get_recog_meta(w)
+        else:
+            print "Defaulting to extracting recog metadata"
+            X,meta = get_recog_meta(w)
+            
+        save_meta_to_csv(meta,w,save_dir)
 
 def gen_regressor(DATADIR):    
 	##this creates the 3-column text file that FEAT expects in order to construct the GLM
@@ -403,6 +549,49 @@ def gen_regressor(DATADIR):
 	    print 'Finished generating glm regressors for Feat.'
 
 
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description="extract sketch metadata")
+    parser.add_argument('--save_dir', type=str, default='metadata')
+    parser.add_argument('--phase', type=str, default='drawing') 
+    parser.add_argument('--gen_regressor', type=bool, default=False)     
+    args = parser.parse_args()  
+    
+    
+    conn = pm.MongoClient(port=20809)
+    DBNAME = conn['during_morph_drawing_recognition']
+    COLNAME = DBNAME['fmri3.files']
+    coll=COLNAME
+    DATADIR = args.save_dir
+    if not os.path.exists(DATADIR):
+        os.makedirs(DATADIR)
+    
+    mdtd = cPickle.load(open('morph_drawing_training_design.pkl'))
 
+    # patient ID and worker ID mappings
+    ## exceptions: '1115161_neurosketch', '1116161_neurosketch', '1117161_neurosketch', '1207161_neurosketch'
+    patient_ids_1 = ['1121161_neurosketch', '1130161_neurosketch', 
+    '1201161_neurosketch', '1202161_neurosketch', '1203161_neurosketch',
+    '1206161_neurosketch', '1206162_neurosketch','1206163_neurosketch',
+    '1207161_neurosketch','1207162_neurosketch']
+    patient_ids_2 = ['1207162_neurosketch']
+    patient_ids_3 = ['0110171_neurosketch', '0110172_neurosketch',
+    '0111171_neurosketch','0112171_neurosketch', '0112172_neurosketch','0112173_neurosketch',
+    '0113171_neurosketch','0115172_neurosketch','0115174_neurosketch','0117171_neurosketch',
+    '0118171_neurosketch','0118172_neurosketch','0119171_neurosketch','0119172_neurosketch',
+    '0119173_neurosketch', '0119174_neurosketch','0120171_neurosketch','0120172_neurosketch',
+    '0120173_neurosketch','0123171_neurosketch','0123172_neurosketch','0123173_neurosketch',
+    '0124171_neurosketch','0125171_neurosketch','0125172_neurosketch']
 
+    patient_ids = patient_ids_1 + patient_ids_2 + patient_ids_3
+
+    all_wIDs = patient_ids
+    wID_pIDs = zip(patient_ids,all_wIDs) 
+                        
+    ## get meta all subs
+    get_meta_all_subs(DATADIR,phase=args.phase)
+    
+    ## gen regressor txt files only for recog
+    if args.gen_regressor:
+        gen_regressor(DATADIR)
 
