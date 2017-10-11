@@ -82,7 +82,7 @@ def get_recog_pilot_worker_list():
 	good_sessions = patient_ids
 	return good_sessions, funky_sessions
 
-def get_worker_list():
+def get_worker_list(COLNAME):
 	wIDs = COLNAME.find({'wID':{'$ne': ''}}).distinct('wID')
 	good_sessions = patient_ids
 	return good_sessions	
