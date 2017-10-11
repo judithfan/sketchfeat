@@ -426,7 +426,7 @@ def get_drawing_meta(w):
     counter = 0
     numTrials =len(morphrecog)
     runStartDelayTR = 8 # number of TRs delay before first stim shown in each run
-    num_TR_per_train_run = 286
+    num_TR_per_train_run = 308 ## all blocks begin with 8TR burn-in period; after end of last trial, buffer until scanner finishes scanning 308 TR's
 
     for counter in np.arange(numTrials):
         onset = morphrecog.iloc[counter]['TRnum']
