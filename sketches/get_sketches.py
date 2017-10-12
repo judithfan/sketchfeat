@@ -43,7 +43,7 @@ if __name__ == "__main__":
 	# get worker list
 	import get_metadata as gm
 	reload(gm)
-	workers = gm.get_worker_list()
+	workers = gm.get_worker_list(COLNAME)
 	print workers
 	print 'We have records on ' + str(len(workers)) + ' participants.'	
 
