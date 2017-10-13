@@ -1,8 +1,7 @@
-# Sketch feature 
+# Modeling sketching behavior in the scanner (project: neurosketch)
 
+The `sketchfeat` project seeks to model the features of sketches produced by participants in our `neurosketch` study conducted at Princeton (Winter 2016-2017). 
 
-I'm using the VGG16 network from [tensorflow-vgg16](https://github.com/machrisaa/tensorflow-vgg). Original Caffe implementation can be found in [here](https://gist.github.com/ksimonyan/211839e770f7b538e2d8) and [here](https://gist.github.com/ksimonyan/3785162f95cd2d5fee77).
+We generally use feature representations learned by deep convolutional neural networks pre-trained on object categorization of photographs in the Imagenet database.
 
-
-
-You'll want to download the [vgg16 npy files](https://mega.nz/#!YU1FWJrA!O1ywiCS2IiOlUCtCpI6HTJOMrneN-Qdv3ywQP5poecM) to run the code. 
+Currently, we are using VGG-19 as our primary visual encoding model.
