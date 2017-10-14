@@ -1,6 +1,5 @@
 ### Put script in sketches folder
-### For each subject, if the directory is there, for each trial, for each stroke:
-### render path, write to actual svg file, convert to png, resize png
+### For each subject, if the metadata csv is found: for each stroke in each trial, render path, write to actual svg file, convert to png, resize png
 
 
 
@@ -26,10 +25,10 @@ atts = {'fill': 'none', 'stroke': '#000000', 'stroke-width':'5'}
 frame = 'M0,0L0,460L460,460L460,0'
 frameatts = {'fill': 'none', 'stroke': '#ffffff', 'stroke-width':'0.01'}
 
+#For testing
+#subjects = ['0110171_neurosketch','1121161_neurosketch']
 
-subjects = ['0110171_neurosketch','1121161_neurosketch']
-
-#subjects = ['1121161_neurosketch','1130161_neurosketch','1201161_neurosketch','1202161_neurosketch','1203161_neurosketch','1206161_neurosketch','1206162_neurosketch','1206163_neurosketch','1207161_neurosketch','1207162_neurosketch','1207162_neurosketch','0110171_neurosketch','0110172_neurosketch', '0111171_neurosketch', '0112171_neurosketch', '0112172_neurosketch', '0112173_neurosketch', '0113171_neurosketch','0115172_neurosketch', '0115174_neurosketch','0117171_neurosketch', '0118171_neurosketch','0118172_neurosketch', '0119171_neurosketch', '0119172_neurosketch', '0119173_neurosketch', '0119174_neurosketch', '0120171_neurosketch', '0120172_neurosketch', '0120173_neurosketch', '0123171_neurosketch', '0123172_neurosketch', '0123173_neurosketch',  '0124171_neurosketch', '0125171_neurosketch', '0125172_neurosketch']
+subjects = ['1121161_neurosketch','1130161_neurosketch','1201161_neurosketch','1202161_neurosketch','1203161_neurosketch','1206161_neurosketch','1206162_neurosketch','1206163_neurosketch','1207161_neurosketch','1207162_neurosketch','1207162_neurosketch','0110171_neurosketch','0110172_neurosketch', '0111171_neurosketch', '0112171_neurosketch', '0112172_neurosketch', '0112173_neurosketch', '0113171_neurosketch','0115172_neurosketch', '0115174_neurosketch','0117171_neurosketch', '0118171_neurosketch','0118172_neurosketch', '0119171_neurosketch', '0119172_neurosketch', '0119173_neurosketch', '0119174_neurosketch', '0120171_neurosketch', '0120172_neurosketch', '0120173_neurosketch', '0123171_neurosketch', '0123172_neurosketch', '0123173_neurosketch',  '0124171_neurosketch', '0125171_neurosketch', '0125172_neurosketch']
 
 
 
