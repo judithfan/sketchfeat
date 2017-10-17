@@ -18,7 +18,7 @@ from reportlab.graphics import renderPM
 
 
 currentdir = os.getcwd()
-sketchdir = str(currentdir) + '/drawing_run_metadata'
+sketchdir = str(currentdir) + '/sketch_data'
 
 dims = (224,224)
 atts = {'fill': 'none', 'stroke': '#000000', 'stroke-width':'5'}
