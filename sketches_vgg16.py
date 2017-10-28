@@ -5,6 +5,7 @@ import utils
 import pickle
 import os
 import re
+import sys
 
 import tensorflow as tf
 import vgg16
@@ -17,7 +18,7 @@ VGG_SIZE_Z = 3
 
 
 SKETCH_FOLDER = './sketch_data'
-BATCH_SZ = 160
+BATCH_SZ = 128
 
 
 # parses a foldername to return the relevant info. returns -1 if file is not a png or the filename is ill-formed
@@ -95,14 +96,21 @@ for folderName, subfolders, filenames in os.walk(SKETCH_FOLDER):
 
 
 batch = splitBatches(full_batch, BATCH_SZ);
+img1 = utils.load_image("./test_data/tiger.jpeg")
+img2 = utils.load_image("./test_data/puzzle.jpeg")
 
+batch1 = img1.reshape((1, 224, 224, 3))
+batch2 = img2.reshape((1, 224, 224, 3))
+
+batch_mini = np.concatenate((batch1, batch2), 0)
 
 # running the gpu 
+# for tf_run in xrange(9, len(batch)):
+if True:
+#    tf_run = int(sys.argv[1])
+#    batch_mini = batch[tf_run]
 
-for tf_run in xrange(0, len(batch)):
-    batch_mini = batch[tf_run]
-
-    print "running batch" + str(tf_run)
+#   print "running batch" + str(tf_run)
     print ".........." 
         
     with tf.device('/gpu:0'):
@@ -114,12 +122,15 @@ for tf_run in xrange(0, len(batch)):
             vgg = vgg16.Vgg16()
             with tf.name_scope("content_vgg"):
                 vgg.build(image)
-
+            act_wanted = [vgg.fc7]
             act_wanted = [vgg.pool1, vgg.pool2, vgg.pool3, vgg.pool4, vgg.pool5, vgg.fc6, vgg.fc7] # , vgg.prob]
-            act = sess.run(act_wanted, feed_dict=feed_dict)
-
+          #  act = sess.run(act_wanted, feed_dict=feed_dict)
+            prob = sess.run(vgg.prob, feed_dict=feed_dict)
+            print(prob)
+            utils.print_prob(prob[0], './synset.txt')
+            utils.print_prob(prob[1], './synset.txt')
 
     print "completed batch" 
     print "now saving...."
-    pickle.dump(act, open( "/tigress/rslee/sketch_act" + str(tf_run) + ".p", "wb" ) )
+#    pickle.dump(act, open( "/tigress/rslee/sketch_act" + str(tf_run) + ".p", "wb" ) )
     print "saved vgg for batch" + str(tf_run)
