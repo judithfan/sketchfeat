@@ -19,7 +19,7 @@ NUM_VIEWS = 40
 
 # pull data from online 
 cars = ['limoToSUV_10','limoToSUV_99','smartToSedan_10','smartToSedan_99'];
-furnitures = ['bedChair_1', 'bedChair_100', 'benchBed_1', 'benchBed_100']
+furnitures = ['bedChair_1', 'bedChair_100', 'tableBench_1', 'tableBench_100'];
 
 # sample webpage: https://s3.amazonaws.com/morphrecog-images-1/bedChair_1_20.png.png
 
