@@ -67,14 +67,13 @@ def flatten(x):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--save_dir', type=str,default='partial_sketches')
-    parser.add_argument('--data_dir', type=str,default='data')
-    parser.add_argument('--num_renders', type=int,default=24)
-    parser.add_argument('--canvas_size', type=int,default=500)
-    parser.add_argument('--stroke_width', type=int,default=5)
+    parser.add_argument('save_dir', type=str,default='partial_sketches')
+    parser.add_argument('sketch_emb_dir', type=str)
+    parser.add_argument('photo_mmemb_dir', type=str)
     args = parser.parse_args()
 
-    sub_paths = [os.path.join(args.data_dir,i) for i in os.listdir(args.data_dir) if os.path.isdir(os.path.join(args.data_dir,i))]
+    num_renders = 24 ## roughly corresponds to the number of TR's in each drawing trial
+    sub_paths = [os.path.join('data',i) for i in os.listdir('data') if os.path.isdir(os.path.join('data',i))]
     for s in sub_paths:
         print('printing partial sketches from {}'.format(s))
         X = pd.read_csv(os.path.join(s,s.split('/')[-1] + '_metadata.csv'))
@@ -109,7 +108,7 @@ if __name__ == '__main__':
 
             Verts = flatten(Verts)
             Codes = flatten(Codes)
-            splice_markers = map(int,np.linspace(0,len(Verts),args.num_renders)) 
+            splice_markers = map(int,np.linspace(0,len(Verts),num_renders)) 
 
             for i,t in enumerate(splice_markers[1:]):
                 _Verts = Verts[:t]
@@ -120,16 +119,16 @@ if __name__ == '__main__':
                 ax = fig.add_subplot(111)
                 if len(verts)>0:
                     path = Path(_Verts, _Codes)
-                    patch = patches.PathPatch(path, facecolor='none', lw=args.stroke_width)
+                    patch = patches.PathPatch(path, facecolor='none', lw=5)
                     ax.add_patch(patch)
-                    ax.set_xlim(0,args.canvas_size)
-                    ax.set_ylim(0,args.canvas_size) 
+                    ax.set_xlim(0,500)
+                    ax.set_ylim(0,500) 
                     ax.axis('off')
                     plt.gca().invert_yaxis() # y values increase as you go down in image
                     plt.show()
                 else:
-                    ax.set_xlim(0,args.canvas_size)
-                    ax.set_ylim(0,args.canvas_size)        
+                    ax.set_xlim(0,500)
+                    ax.set_ylim(0,500)        
                     ax.axis('off')
                     plt.show()
                 sketch_dir = X.target.values[sketch_ind] + '_' + str(X.trial.values[sketch_ind])
