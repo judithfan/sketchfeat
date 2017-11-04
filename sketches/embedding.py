@@ -66,7 +66,103 @@ class VGG19Embeddings(nn.Module):
         return [self._flatten(x_conv1), self._flatten(x_conv2),
                 self._flatten(x_conv3), self._flatten(x_conv4),
                 self._flatten(x_conv5), x_linear1, x_linear2, x_linear3]
+    
+class FeatureExtractor():
+    
+    def __init__(self,paths,layer=7, use_cuda=True, imsize=224,batch_size=64, cuda_device=3):
+        self.layer = layer
+        self.paths = paths
+        self.use_cuda = use_cuda
+        self.imsize = imsize
+        self.batch_size = batch_size
+        self.cuda_device = 3        
+            
+    def extract_feature_matrix(self):
+        
+        def load_image(path, imsize=224, volatile=True, use_cuda=False):
+            im = Image.open(path)
+            im = im.convert('RGB')
 
+            loader = transforms.Compose([
+                transforms.Scale(imsize),
+                transforms.ToTensor()])
+
+            im = Variable(loader(im), volatile=volatile)
+            im = im.unsqueeze(0)
+            if use_cuda:
+                im = im.cuda(self.cuda_device)
+            return im
+        
+        def load_vgg19(layer_index=-1,use_cuda=True,cuda_device=self.cuda_device):
+            vgg19 = models.vgg19(pretrained=True).cuda(self.cuda_device)        
+            vgg19 = VGG19Embeddings(vgg19,layer_index)
+            vgg19.eval()  # freeze dropout
+
+            # freeze each parameter
+            for p in vgg19.parameters():
+                p.requires_grad = False
+
+            return vgg19        
+        
+        def generator(paths, imsize=self.imsize, use_cuda=use_cuda):
+            for path in paths:
+                image = load_image(path)
+                label = get_label_from_path(path)
+                yield (image, label)        
+                
+        # define generator
+        generator = generator(self.paths,imsize=self.imsize,use_cuda=self.use_cuda)
+        
+        # initialize sketch and label matrices
+        Features = []
+        Labels = []
+        
+        n = 0
+        quit = False 
+        
+        # load appropriate extractor
+        extractor = load_vgg19(layer_index=self.layer)        
+        
+        # generate batches of sketches and labels    
+        if generator:
+            while True:    
+                batch_size = self.batch_size
+                sketch_batch = Variable(torch.zeros(batch_size, 3, self.imsize, self.imsize))                
+                if use_cuda:
+                    sketch_batch = sketch_batch.cuda(self.cuda_device)             
+                label_batch = []   
+                print('Batch {}'.format(n + 1))            
+                for b in range(batch_size):
+                    try:
+                        sketch, label = generator.next()
+                        sketch_batch[b] = sketch 
+                        label_batch.append(label)
+                    except StopIteration:
+                        quit = True
+                        print 'stopped!'
+                        break                
+
+                if n == num_sketches//self.batch_size:
+                    sketch_batch = sketch_batch.narrow(0,0,b)
+                    label_batch = label_batch[:b + 1] 
+                n = n + 1       
+                
+                # extract features from batch
+                sketch_batch = extractor(sketch_batch)
+                sketch_batch = sketch_batch[0].cpu().data.numpy()  
+
+                if len(Features)==0:
+                    Features = sketch_batch
+                else:
+                    Features = np.vstack((Features,sketch_batch))
+
+                Labels.append(label_batch)
+
+                if n == num_sketches//batch_size + 1:
+                    break
+        Labels = np.array([item for sublist in Labels for item in sublist])
+        return Features, Labels    
+    
 def load_vgg19(layer_index=-1,use_cuda=True,cuda_device=3):
     vgg19 = models.vgg19(pretrained=True).cuda(cuda_device)  
     print(layer_index)
