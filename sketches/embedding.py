@@ -12,6 +12,8 @@ import torchvision.transforms as transforms
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from PIL import Image
+
 use_cuda = torch.cuda.is_available()
 
 class VGG19Embeddings(nn.Module):
@@ -72,6 +74,7 @@ class FeatureExtractor():
     def __init__(self,paths,layer=7, use_cuda=True, imsize=224,batch_size=64, cuda_device=3):
         self.layer = layer
         self.paths = paths
+        self.num_sketches = len(self.paths)
         self.use_cuda = use_cuda
         self.imsize = imsize
         self.batch_size = batch_size
@@ -102,14 +105,17 @@ class FeatureExtractor():
             for p in vgg19.parameters():
                 p.requires_grad = False
 
-            return vgg19        
+            return vgg19             
+
+        def get_label_from_path(path):
+            return path.split('.')[-2].split('_')[-1]          
         
         def generator(paths, imsize=self.imsize, use_cuda=use_cuda):
             for path in paths:
                 image = load_image(path)
                 label = get_label_from_path(path)
                 yield (image, label)        
-                
+                                                
         # define generator
         generator = generator(self.paths,imsize=self.imsize,use_cuda=self.use_cuda)
         
@@ -139,10 +145,10 @@ class FeatureExtractor():
                         label_batch.append(label)
                     except StopIteration:
                         quit = True
-                        print 'stopped!'
+                        print('stopped!')
                         break                
 
-                if n == num_sketches//self.batch_size:
+                if n == self.num_sketches//self.batch_size:
                     sketch_batch = sketch_batch.narrow(0,0,b)
                     label_batch = label_batch[:b + 1] 
                 n = n + 1       
@@ -158,7 +164,7 @@ class FeatureExtractor():
 
                 Labels.append(label_batch)
 
-                if n == num_sketches//batch_size + 1:
+                if n == self.num_sketches//batch_size + 1:
                     break
         Labels = np.array([item for sublist in Labels for item in sublist])
         return Features, Labels    
