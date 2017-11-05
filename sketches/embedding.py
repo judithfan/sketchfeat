@@ -136,8 +136,9 @@ class FeatureExtractor():
                 sketch_batch = Variable(torch.zeros(batch_size, 3, self.imsize, self.imsize))                
                 if use_cuda:
                     sketch_batch = sketch_batch.cuda(self.cuda_device)             
-                label_batch = []   
-                print('Batch {}'.format(n + 1))            
+                label_batch = [] 
+                if (n+1)%5==0:
+                    print('Batch {}'.format(n + 1))            
                 for b in range(batch_size):
                     try:
                         sketch, label = generator.next()
