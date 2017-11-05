@@ -170,9 +170,124 @@ class FeatureExtractor():
         Labels = np.array([item for sublist in Labels for item in sublist])
         return Features, Labels    
     
+class PartialFeatureExtractor(): 
+    
+    def __init__(self,paths,layer=7, use_cuda=True, imsize=224,batch_size=64, cuda_device=2):
+        self.layer = layer
+        self.paths = paths
+        self.num_sketches = len(self.paths)
+        self.use_cuda = use_cuda
+        self.imsize = imsize
+        self.batch_size = batch_size
+        self.cuda_device = cuda_device       
+        
+    def extract_feature_matrix(self):
+        
+        def get_chunk_from_path(path):
+            return int(path.split('/')[-1].split('.')[0]) 
+        def get_trial_from_path(path):
+            return int(path.split('/')[-2].split('_')[1]) 
+        def get_label_from_path(path):
+            return path.split('/')[-2].split('_')[0] 
+        def get_subj_from_path(path):
+            return path.split('/')[-3]        
+        
+        def load_image(path, imsize=224, volatile=True, use_cuda=False):
+            im = Image.open(path)
+            im = im.convert('RGB')
+
+            loader = transforms.Compose([
+                transforms.Scale(imsize),
+                transforms.ToTensor()])
+
+            im = Variable(loader(im), volatile=volatile)
+            im = im.unsqueeze(0)
+            if use_cuda:
+                im = im.cuda(self.cuda_device)
+            return im
+
+        def sketch_generator(paths, imsize=224, use_cuda=use_cuda):
+            for path in paths:
+                sketch = load_image(path)
+                label = get_label_from_path(path)
+                chunk = get_chunk_from_path(path)
+                subj = get_subj_from_path(path)
+                trial = get_trial_from_path(path)
+                yield (sketch, label, chunk, subj, trial)
+
+        # define generator
+        generator = sketch_generator(self.paths,imsize=224,use_cuda=use_cuda)
+
+        # initialize sketch and label matrices
+        Features = []
+        Labels = []
+        Chunks = []
+        Subjs = []
+        Trials = []
+        n = 0
+        quit = False 
+        
+        # load appropriate extractor
+        extractor = load_vgg19(layer_index=self.layer, cuda_device = self.cuda_device)        
+
+        # generate batches of sketches and labels    
+        if generator:
+            while True:    
+                batch_size = 64
+                sketch_batch = Variable(torch.zeros(batch_size, 3, 224, 224))
+                if use_cuda:
+                    sketch_batch = sketch_batch.cuda(self.cuda_device)                
+                label_batch = []   
+                chunk_batch = []
+                subj_batch = []
+                trial_batch = []
+                print('Batch {}'.format(n + 1))            
+                for b in range(batch_size):
+                    try:
+                        sketch, label, chunk, subj, trial = generator.next()
+                        sketch_batch[b] = sketch   
+                        label_batch.append(label)
+                        chunk_batch.append(chunk)
+                        subj_batch.append(subj)
+                        trial_batch.append(trial)                
+                    except StopIteration:
+                        quit = True
+                        print('stopped!')
+                        break                
+
+                if n == self.num_sketches//batch_size:
+                    sketch_batch = sketch_batch.narrow(0,0,b)
+                    label_batch = label_batch[:b + 1] 
+                    chunk_batch = chunk_batch[:b + 1] 
+                    subj_batch = subj_batch[:b + 1] 
+                    trial_batch = trial_batch[:b + 1] 
+                n = n + 1       
+
+                # extract features from batch
+                sketch_batch = extractor(sketch_batch)
+                sketch_batch = sketch_batch[0].cpu().data.numpy()  
+
+                if len(Features)==0:
+                    Features = sketch_batch
+                else:
+                    Features = np.vstack((Features,sketch_batch))
+                Labels.append(label_batch)
+                Chunks.append(chunk_batch)        
+                Subjs.append(subj_batch)
+                Trials.append(trial_batch)
+
+                if n == self.num_sketches//batch_size + 1:
+                    break
+        Labels = np.array([item for sublist in Labels for item in sublist])
+        Chunks = np.array([item for sublist in Chunks for item in sublist])
+        Subjs = np.array([item for sublist in Subjs for item in sublist])
+        Trials = np.array([item for sublist in Trials for item in sublist])        
+            
+        return Features, Labels, Chunks, Subjs, Trials
+                
+    
 def load_vgg19(layer_index=-1,use_cuda=True,cuda_device=3):
     vgg19 = models.vgg19(pretrained=True).cuda(cuda_device)  
-    print(layer_index)
     vgg19 = VGG19Embeddings(vgg19, layer_index)
     vgg19.eval()  # freeze dropout
 
