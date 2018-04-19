@@ -73,7 +73,7 @@ def list_files(path, ext='png'):
               for y in glob(os.path.join(x[0], '*.%s' % ext))]
     return result
 
-def bootstrapCI(x,nIter):
+def bootstrapCI(x,nIter=1000):
     '''
     input: x is an array
     '''
